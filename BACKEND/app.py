@@ -10,13 +10,17 @@ from sklearn.ensemble import (
     GradientBoostingClassifier, GradientBoostingRegressor,
 )
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.metrics import accuracy_score, r2_score
+from sklearn.metrics import (
+    accuracy_score, r2_score, precision_score, recall_score, 
+    f1_score, log_loss, mean_squared_error
+)
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.preprocessing import LabelEncoder
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC, SVR, LinearSVC, LinearSVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -96,10 +100,7 @@ def train():
         X = df.drop(columns=[target_column])
         X = X.select_dtypes(include=["number"]).fillna(0)
 
-        # ----- Improved task detection -----
-        # If y is numeric but has few unique values -> classification
-        # If y is numeric and has many unique values -> regression
-        # If y is categorical -> classification
+        # Task detection
         if y.dtype.kind in "biufc":  # numeric
             if y.nunique() <= 20:
                 is_regression = False
@@ -108,32 +109,39 @@ def train():
         else:
             is_regression = False
 
+        # Encode target for classification
+        label_encoder = None
+        if not is_regression:
+            label_encoder = LabelEncoder()
+            y = label_encoder.fit_transform(y.astype(str))
+
         if is_regression:
             metric_name = "R² Score"
             AVAILABLE_MODELS = {
                 "Linear Regression": LinearRegression(),
                 "Random Forest Regressor": RandomForestRegressor(n_estimators=100, random_state=42),
-                "Support Vector Regressor": SVR(),
-                "Decision Tree Regressor": DecisionTreeRegressor(),
-                "Gradient Boosting Regressor": GradientBoostingRegressor(),
+                "Support Vector Regressor (Slow)": SVR(),
+                "Support Vector Regressor": SVR(),  # Accept without (Slow)
+                "Linear Support Vector Regressor (Fast)": LinearSVR(max_iter=2000, random_state=42),
+                "Linear Support Vector Regressor": LinearSVR(max_iter=2000, random_state=42),  # Accept without (Fast)
+                "Decision Tree Regressor": DecisionTreeRegressor(random_state=42),
+                "Gradient Boosting Regressor": GradientBoostingRegressor(random_state=42),
                 "K-Nearest Neighbors Regressor": KNeighborsRegressor(),
-                "MLP Regressor": MLPRegressor(max_iter=1000),
+                "MLP Regressor": MLPRegressor(max_iter=1000, random_state=42),
             }
         else:
             metric_name = "Accuracy"
-            if y.dtype != "object":
-                # Convert numeric categorical targets to int labels
-                y = LabelEncoder().fit_transform(y.astype(str))
-            else:
-                y = LabelEncoder().fit_transform(y)
             AVAILABLE_MODELS = {
-                "Logistic Regression": LogisticRegression(max_iter=1000),
+                "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
                 "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
-                "Support Vector Machine": SVC(kernel="rbf", probability=True, random_state=42),
-                "Decision Tree Classifier": DecisionTreeClassifier(),
-                "Gradient Boosting Classifier": GradientBoostingClassifier(),
+                "Support Vector Machine (Slow)": SVC(kernel="rbf", probability=True, random_state=42),
+                "Support Vector Machine": SVC(kernel="rbf", probability=True, random_state=42),  # Accept without (Slow)
+                "Linear Support Vector Machine (Fast)": LinearSVC(max_iter=2000, random_state=42, dual='auto'),
+                "Linear Support Vector Machine": LinearSVC(max_iter=2000, random_state=42, dual='auto'),  # Accept without (Fast)
+                "Decision Tree Classifier": DecisionTreeClassifier(random_state=42),
+                "Gradient Boosting Classifier": GradientBoostingClassifier(random_state=42),
                 "K-Nearest Neighbors": KNeighborsClassifier(),
-                "MLP Classifier": MLPClassifier(max_iter=1000),
+                "MLP Classifier": MLPClassifier(max_iter=1000, random_state=42),
             }
 
         # Filter valid models
@@ -150,14 +158,57 @@ def train():
             try:
                 model.fit(X_train, y_train)
                 y_pred = model.predict(X_test)
-                score = r2_score(y_test, y_pred) if is_regression else accuracy_score(y_test, y_pred)
-                model_filename = f"{task_id}_{model_name.replace(' ', '')}.pkl"
+                
+                if is_regression:
+                    # Regression metrics
+                    score = r2_score(y_test, y_pred)
+                    mse = mean_squared_error(y_test, y_pred)
+                    rmse = np.sqrt(mse)
+                    
+                    results.append({
+                        "name": model_name,
+                        "score": float(score),
+                        "r2": float(score),
+                        "mse": float(mse),
+                        "rmse": float(rmse),
+                        "loss": float(mse),
+                        "download_path": f"{task_id}_{model_name.replace(' ', '_').replace('(', '').replace(')', '')}.pkl",
+                    })
+                else:
+                    # Classification metrics
+                    score = accuracy_score(y_test, y_pred)
+                    
+                    # Handle models that don't support predict_proba (like LinearSVC)
+                    try:
+                        if hasattr(model, 'predict_proba'):
+                            y_pred_proba = model.predict_proba(X_test)
+                            loss = log_loss(y_test, y_pred_proba)
+                        else:
+                            # For models without predict_proba, use a simple error metric
+                            loss = 1 - score
+                    except:
+                        loss = 1 - score
+                    
+                    # Calculate precision, recall, f1 with averaging
+                    precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+                    recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+                    f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+                    
+                    results.append({
+                        "name": model_name,
+                        "score": float(score),
+                        "accuracy": float(score),
+                        "precision": float(precision),
+                        "recall": float(recall),
+                        "f1": float(f1),
+                        "loss": float(loss),
+                        "download_path": f"{task_id}_{model_name.replace(' ', '_').replace('(', '').replace(')', '')}.pkl",
+                    })
+                
+                # Save model
+                model_filename = f"{task_id}_{model_name.replace(' ', '_').replace('(', '').replace(')', '')}.pkl"
                 joblib.dump(model, os.path.join(app.config["MODEL_FOLDER"], model_filename))
-                results.append({
-                    "name": model_name,
-                    "score": f"{score:.4f}",
-                    "download_path": model_filename,
-                })
+                
             except Exception as e:
                 print(f"Error training model {model_name}: {e}")
                 results.append({
@@ -172,12 +223,14 @@ def train():
 
         tasks[task_id]["results"] = results
         tasks[task_id]["metric"] = metric_name
+        tasks[task_id]["is_regression"] = is_regression
 
         return jsonify({
             "status": "success",
             "task_id": task_id,
             "results": results,
-            "metric": metric_name
+            "metric": metric_name,
+            "is_regression": is_regression
         })
 
     except Exception as e:
@@ -192,7 +245,8 @@ def results(task_id):
     return jsonify({
         "results": task_data["results"],
         "metric": task_data["metric"],
-        "task_id": task_id
+        "task_id": task_id,
+        "is_regression": task_data.get("is_regression", False)
     })
 
 
