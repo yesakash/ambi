@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+
+# Application-generated files
+# Do not commit user-uploaded data or trained models to the repository
+uploads/*
+!uploads/.gitkeep
+
+models/*
+!models/.gitkeep

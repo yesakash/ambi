@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>CSV Preview</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background: #020202ff;
+                margin: 0;
+                padding: 20px;
+            }
+            .container {
+                max-width: 800px;
+                margin: 50px auto;
+                background: #171717ff;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(15, 107, 169, 0.1);
+                color: white;
+                border: 3px solid rgba(10, 120, 194, 0.5);
+            }
+            h1 {
+                text-align: center;
+            }
+            .controls {
+                background: #070707ff;
+                padding: 20px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+            }
+            .btn {
+                display: inline-block;
+                background: #007bff;
+                color: #fff;
+                padding: 10px 20px;
+                border-radius: 5px;
+                border: none;
+                cursor: pointer;
+                font-size: 16px;
+                text-decoration: none;
+            }
+            .btn:hover {
+                background: #0056b3;
+            }
+            .table-wrapper {
+                overflow-x: auto;
+                max-height: 500px;
+                margin-top: 15px;
+            }
+            table.csv-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            table.csv-table th,
+            table.csv-table td {
+                border: 1px solid #ccc;
+                padding: 8px;
+                text-align: center;
+            }
+            table.csv-table th {
+                background-color: #0b85ff35;
+            }
+            input[type="range"] {
+                width: 100%;
+            }
+            .slider-container {
+                margin: 10px 0;
+            }
+            .slider-value {
+                font-weight: bold;
+                margin-left: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>CSV Preview</h1>
+
+            <div class="controls">
+                <form
+                    action="{{ url_for('preview_csv', task_id=task_id) }}"
+                    method="post"
+                >
+                    <!-- Hidden field to remember the target column on updates -->
+                    {% if target_column %}
+                    <input
+                        type="hidden"
+                        name="target"
+                        value="{{ target_column }}"
+                    />
+                    {% endif %}
+
+                    <div class="slider-container">
+                        <label for="preview_rows"
+                            >Preview Rows:
+                            <span id="rowValue" class="slider-value"
+                                >{{ preview_rows }}</span
+                            ></label
+                        >
+                        <input
+                            type="range"
+                            id="preview_rows"
+                            name="preview_rows"
+                            min="5"
+                            max="50"
+                            value="{{ preview_rows }}"
+                            oninput="rowValue.innerText = this.value"
+                        />
+                    </div>
+                    <div class="slider-container">
+                        <label for="preview_cols"
+                            >Preview Columns:
+                            <span id="colValue" class="slider-value"
+                                >{{ preview_cols }}</span
+                            ></label
+                        >
+                        <input
+                            type="range"
+                            id="preview_cols"
+                            name="preview_cols"
+                            min="3"
+                            max="20"
+                            value="{{ preview_cols }}"
+                            oninput="colValue.innerText = this.value"
+                        />
+                    </div>
+                    <button type="submit" class="btn">Update Preview</button>
+                </form>
+            </div>
+
+            <div class="table-wrapper">{{ csv_preview | safe }}</div>
+
+            <a
+                href="javascript:window.close();"
+                class="btn"
+                style="margin-top: 20px"
+                >Close Preview</a
+            >
+        </div>
+    </body>
+</html>

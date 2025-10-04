@@ -1,0 +1,7 @@
+This file lists the Python packages our project depends on.
+
+```text
+Flask==2.2.3
+pandas==1.5.3
+scikit-learn==1.2.2
+joblib==1.2.0

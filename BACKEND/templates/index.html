@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>ML Model Training Platform - MVP</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background: #020202ff;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 800px;
+                margin: 50px auto;
+                background: #171717ff;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(15, 107, 169, 0.1);
+                color: white;
+                border: 3px solid rgba(10, 120, 194, 0.5);
+            }
+            h1 {
+                text-align: center;
+                color: white;
+                margin-bottom: 40px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            label {
+                font-weight: bold;
+                display: block;
+                margin-bottom: 5px;
+            }
+            input[type="file"],
+            input[type="text"] {
+                width: 100%;
+                padding: 8px;
+                border-radius: 4px;
+                border: 2px solid #a72845;
+                background-color: #ffe6e6;
+                transition: all 0.3s ease;
+                outline: none;
+                color: #960c2cff;
+                box-sizing: border-box;
+            }
+            input[type="file"]:valid,
+            input[type="text"]:not(:placeholder-shown) {
+                color: #0c962cff;
+                border: 2px solid #28a745;
+                background-color: #e6ffe6;
+            }
+            .checkbox-group label {
+                display: block;
+                margin-bottom: 10px;
+                cursor: pointer;
+                font-weight: 400;
+            }
+            .btn {
+                display: inline-block;
+                background: #007bff;
+                color: #fff;
+                padding: 10px 20px;
+                border-radius: 5px;
+                border: none;
+                cursor: pointer;
+                font-size: 16px;
+                text-decoration: none;
+                text-align: center;
+            }
+            .btn:hover {
+                background: #0056b3;
+            }
+            .file-info {
+                background-color: #2a2a2a;
+                border-left: 4px solid #0c962cff;
+                padding: 15px;
+                margin-bottom: 20px;
+                border-radius: 4px;
+            }
+            .file-info p {
+                margin: 0;
+            }
+            .file-info a {
+                color: #007bff;
+                text-decoration: none;
+                font-weight: bold;
+            }
+            .file-info a:hover {
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Train Your ML Model</h1>
+
+            {% if not task_id %}
+            <!-- STATE 1: NO FILE UPLOADED YET -->
+            <p>
+                Upload a CSV file to begin. You can then configure and train
+                your models.
+            </p>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="file">1. Upload your Dataset (CSV only)</label>
+                    <input
+                        type="file"
+                        id="file"
+                        name="file"
+                        accept=".csv"
+                        required
+                    />
+                </div>
+                <button type="submit" class="btn">Upload and Configure</button>
+            </form>
+
+            {% else %}
+            <!-- STATE 2: FILE IS UPLOADED, READY TO CONFIGURE -->
+            <div class="file-info">
+                <p><strong>File Ready:</strong> {{ task_info.filename }}</p>
+                <p>
+                    <a href="/" style="font-size: 0.9em; color: #ffc107"
+                        >Upload a different file</a
+                    >
+                </p>
+            </div>
+
+            <form action="/train" method="post">
+                <input type="hidden" name="task_id" value="{{ task_id }}" />
+
+                <div class="form-group">
+                    <label for="target_column"
+                        >1. Enter Target Column Name</label
+                    >
+                    <input
+                        type="text"
+                        id="target_column"
+                        name="target_column"
+                        placeholder="e.g., 'target' or 'is_fraud'"
+                        required
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label>2. Select Models to Train</label>
+                    <div class="checkbox-group">
+                        {% for model_name in models %}
+                        <label>
+                            <input
+                                type="checkbox"
+                                name="models"
+                                value="{{ model_name }}"
+                            />
+                            {{ model_name }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Button to preview CSV on a new page -->
+                <button
+                    type="button"
+                    onclick="openPreview()"
+                    class="btn"
+                    style="background-color: #6c757d"
+                >
+                    Preview CSV
+                </button>
+
+                <button type="submit" class="btn" style="margin-left: 10px">
+                    Train Models
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        <script>
+            function openPreview() {
+                // Get the value from the target column input field
+                const targetColumn =
+                    document.getElementById("target_column").value;
+                const taskId = "{{ task_id }}";
+                let previewUrl = `/preview/${taskId}`;
+
+                // If the user has typed a column name, add it as a query parameter
+                if (targetColumn) {
+                    previewUrl += `?target=${encodeURIComponent(targetColumn)}`;
+                }
+
+                // Open the URL in a new tab
+                window.open(previewUrl, "_blank");
+            }
+        </script>
+    </body>
+</html>
